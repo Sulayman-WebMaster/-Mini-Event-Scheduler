@@ -2,6 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import DatePicker from "react-datepicker";
 import { IoAddCircle } from "react-icons/io5";
 import "react-datepicker/dist/react-datepicker.css";
+import { toast } from "react-toastify";
 
 type EventFormData = {
   title: string;
@@ -11,7 +12,11 @@ type EventFormData = {
   category: string;
 };
 
-export default function EventForm() {
+type Props = {
+  onEventAdded: () => void;
+};
+
+export default function EventForm({ onEventAdded }: Props) {
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
     date: null,
@@ -20,6 +25,9 @@ export default function EventForm() {
     category: "",
   });
 
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -27,13 +35,71 @@ export default function EventForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Form Submitted:", {
-      ...formData,
-      date: formData.date?.toLocaleDateString(),
-      time: formData.time?.toLocaleTimeString(),
-    });
+
+    setError("");
+
+    if (!formData.date || !formData.time) {
+      setError("Date and time are required.");
+      return;
+    }
+
+    // Prevent past dates
+    const selectedDate = new Date(
+      formData.date.getFullYear(),
+      formData.date.getMonth(),
+      formData.date.getDate()
+    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      setError("Date cannot be in the past.");
+      return;
+    }
+
+    const newEvent = {
+      title: formData.title,
+      date: formData.date.toISOString().split("T")[0],
+      time: formData.time.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      notes: formData.notes,
+    };
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEvent),
+      });
+
+      if (!res.ok) throw new Error("Failed to add event");
+
+      const result = await res.json();
+      console.log("Event added:", result);
+
+      setFormData({
+        title: "",
+        date: null,
+        time: null,
+        notes: "",
+        category: result.category || "Other",
+      });
+
+      onEventAdded();
+
+      toast.success("Event added successfully!");
+    } catch (err) {
+      console.error("Error adding event:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,6 +110,12 @@ export default function EventForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="text-red-500 font-medium bg-red-100 px-4 py-2 rounded">
+            {error}
+          </div>
+        )}
+
         {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -60,51 +132,43 @@ export default function EventForm() {
           />
         </div>
 
-       {/* Date and Time Pickers in One Row */}
-<div className="flex flex-col md:flex-row gap-4 w-full">
-  {/* Date Picker */}
-  <div className="flex-1">
-    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-      Date <span className="text-red-500">*</span>
-    </label>
-    <div className="mt-1 w-full">
-      <DatePicker
-        selected={formData.date}
-        onChange={(date: Date | null) =>
-          setFormData((prev) => ({ ...prev, date }))
-        }
-        dateFormat="MMMM d, yyyy"
-        placeholderText="Select a date"
-        className="!w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-        popperPlacement="bottom"
-      />
-    </div>
-  </div>
+        {/* Date and Time */}
+        <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Date <span className="text-red-500">*</span>
+            </label>
+            <DatePicker
+              selected={formData.date}
+              onChange={(date) => setFormData((prev) => ({ ...prev, date }))}
+              dateFormat="MMMM d, yyyy"
+              placeholderText="Select a date"
+              minDate={new Date()}
+              className="!w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              popperPlacement="bottom"
+              required
+            />
+          </div>
 
-  {/* Time Picker */}
-  <div className="flex-1">
-    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-      Time <span className="text-red-500">*</span>
-    </label>
-    <div className="mt-1 w-full">
-      <DatePicker
-        selected={formData.time}
-        onChange={(time: Date | null) =>
-          setFormData((prev) => ({ ...prev, time }))
-        }
-        showTimeSelect
-        showTimeSelectOnly
-        timeIntervals={15}
-        timeCaption="Time"
-        dateFormat="h:mm aa"
-        placeholderText="Select time"
-        className="!w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-        popperPlacement="bottom"
-      />
-    </div>
-  </div>
-</div>
-
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Time <span className="text-red-500">*</span>
+            </label>
+            <DatePicker
+              selected={formData.time}
+              onChange={(time) => setFormData((prev) => ({ ...prev, time }))}
+              showTimeSelect
+              showTimeSelectOnly
+              timeIntervals={15}
+              timeCaption="Time"
+              dateFormat="h:mm aa"
+              placeholderText="Select time"
+              className="!w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              popperPlacement="bottom"
+              required
+            />
+          </div>
+        </div>
 
         {/* Notes */}
         <div>
@@ -131,17 +195,22 @@ export default function EventForm() {
             name="category"
             readOnly
             value={formData.category}
+            placeholder="e.g., Work"
             className="w-full mt-1 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400 cursor-not-allowed"
-            placeholder="e.g., Meeting"
           />
         </div>
 
-        {/* Submit */}
+        {/* Submit Button */}
         <button
           type="submit"
-          className="w-full py-3 px-6 bg-indigo-600 text-white rounded-xl font-semibold shadow hover:bg-indigo-700 transition-all duration-200"
+          disabled={loading}
+          className={`w-full py-3 px-6 rounded-xl cursor-pointer font-semibold shadow transition-all duration-200 ${
+            loading
+              ? "bg-indigo-300 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+          }`}
         >
-          Add Event
+          {loading ? "Adding..." : "Add Event"}
         </button>
       </form>
     </div>
