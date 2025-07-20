@@ -23,7 +23,7 @@ export default function EventShow({ refreshTrigger }: { refreshTrigger: number }
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch("http://localhost:5000/events");
+      const res = await fetch("https://mini-event-scheduler.onrender.com/events");
       const data = await res.json();
       setEvents(data);
     } catch (err) {
@@ -33,7 +33,7 @@ export default function EventShow({ refreshTrigger }: { refreshTrigger: number }
 
   const deleteEvent = async (id: number) => {
     try {
-      await fetch(`http://localhost:5000/events/${id}`, { method: "DELETE" });
+      await fetch(`https://mini-event-scheduler.onrender.com/events/${id}`, { method: "DELETE" });
       setEvents((prev) => prev.filter((e) => e.id !== id));
     } catch (err) {
       console.error("Failed to delete event:", err);
@@ -42,7 +42,7 @@ export default function EventShow({ refreshTrigger }: { refreshTrigger: number }
 
   const toggleArchive = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/events/${id}`, { method: "PATCH" });
+      const res = await fetch(`https://mini-event-scheduler.onrender.com/events/${id}`, { method: "PATCH" });
       const updated = await res.json();
       setEvents((prev) =>
         prev.map((e) => (e.id === id ? { ...e, archived: updated.archived } : e))
