@@ -5,7 +5,9 @@ import eventsRouter from "./routes/event";
 const app = express();
 const PORT = 5000;
 
-app.use(cors());
+app.use(cors({
+  origin:"https://mellifluous-faun-0202a8.netlify.app/"
+}));
 app.use(express.json());
 app.use("/events", eventsRouter);
 

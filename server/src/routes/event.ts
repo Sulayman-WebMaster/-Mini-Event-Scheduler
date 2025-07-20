@@ -18,7 +18,7 @@ const llm = new ChatOpenAI({
   configuration: {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders: {
-      "HTTP-Referer": "http://localhost",
+      "HTTP-Referer": "https://mellifluous-faun-0202a8.netlify.app/",
       "X-Title": "event-categorizer",
     },
   },
