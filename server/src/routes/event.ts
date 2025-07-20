@@ -1,35 +1,81 @@
 import { Router } from "express";
 import { Event } from "../types/Event";
 import { v4 as uuidv4 } from "uuid";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = Router();
 const events: Event[] = [];
 
-const keywords = {
-  Work: ["meeting", "project", "client", "deadline"],
-  Personal: ["birthday", "family", "vacation", "party"],
-};
 
-function categorizeEvent(title: string, notes?: string): Event["category"] {
-  const text = `${title} ${notes || ""}`.toLowerCase();
-  for (const word of keywords.Work) {
-    if (text.includes(word)) return "Work";
+const llm = new ChatOpenAI({
+  temperature: 0.2,
+  modelName: "openai/gpt-3.5-turbo",
+  openAIApiKey: process.env.OPENROUTER_API_KEY,
+  configuration: {
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": "http://localhost",
+      "X-Title": "event-categorizer",
+    },
+  },
+});
+
+
+
+async function categorizeEventWithAI(
+  title: string,
+  notes?: string
+): Promise<Event["category"]> {
+  const prompt = `
+You are an intelligent event classifier. Based on the title and notes, classify the event into one of the following categories:
+
+- **Work** (e.g., meetings, deadlines, projects, clients)
+- **Personal** (e.g., birthdays, family, social gatherings)
+- **Other** (if it doesn't clearly match Work or Personal)
+
+Return ONLY one of these exact words: "Work", "Personal", or "Other".
+
+Event Title: ${title}
+Event Notes: ${notes || "None"}
+
+Category:
+`;
+
+  const res = await llm.invoke([
+    new SystemMessage(" event classifier."),
+    new HumanMessage(prompt),
+  ]);
+
+  const category = res.text.trim();
+
+  if (["Work", "Personal", "Other"].includes(category)) {
+    return category as Event["category"];
   }
-  for (const word of keywords.Personal) {
-    if (text.includes(word)) return "Personal";
-  }
+
   return "Other";
 }
 
-// POST /events
-router.post("/", (req, res) => {
+
+router.post("/", async (req, res) => {
   const { title, date, time, notes } = req.body;
 
   if (!title || !date || !time) {
-    return res.status(400).json({ error: "Title, date, and time are required." });
+    return res
+      .status(400)
+      .json({ error: "Title, date, and time are required." });
   }
 
-  const category = categorizeEvent(title, notes);
+  let category: Event["category"];
+  try {
+    category = await categorizeEventWithAI(title, notes);
+  } catch (err) {
+    console.error("Categorization error:", err);
+    category = "Other"; 
+  }
 
   const newEvent: Event = {
     id: uuidv4(),
@@ -45,7 +91,7 @@ router.post("/", (req, res) => {
   res.status(201).json(newEvent);
 });
 
-// GET /events
+
 router.get("/", (_req, res) => {
   const sorted = [...events].sort((a, b) => {
     const dateTimeA = new Date(`${a.date}T${a.time}`);
@@ -55,8 +101,8 @@ router.get("/", (_req, res) => {
   res.json(sorted);
 });
 
-// PUT /events/:id
-router.put("/:id", (req, res) => {
+
+router.patch("/:id", (req, res) => {
   const { id } = req.params;
   const event = events.find((e) => e.id === id);
 
@@ -66,7 +112,7 @@ router.put("/:id", (req, res) => {
   res.json(event);
 });
 
-// DELETE /events/:id
+
 router.delete("/:id", (req, res) => {
   const { id } = req.params;
   const index = events.findIndex((e) => e.id === id);

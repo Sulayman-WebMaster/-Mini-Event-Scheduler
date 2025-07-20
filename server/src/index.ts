@@ -10,7 +10,7 @@ app.use(express.json());
 app.use("/events", eventsRouter);
 
 app.get("/", (_req, res) => {
-  res.send("Event Manager API is running.");
+  res.send("API is running.");
 });
 
 app.listen(PORT, () => {

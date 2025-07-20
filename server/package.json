@@ -11,9 +11,12 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@langchain/openai": "^0.6.2",
     "@types/cors": "^2.8.19",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
     "express": "^5.1.0",
+    "langchain": "^0.3.30",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
